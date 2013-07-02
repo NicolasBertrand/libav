@@ -218,19 +218,20 @@ static int get_siz(Jpeg2000DecoderContext *s)
 
     s->numXtiles = ff_jpeg2000_ceildiv(s->width  - s->tile_offset_x, s->tile_width);
     s->numYtiles = ff_jpeg2000_ceildiv(s->height - s->tile_offset_y, s->tile_height);
-
-    s->tile = av_mallocz_array(s->numXtiles * s->numYtiles, sizeof(*s->tile));
     if (!s->tile) {
-        s->numXtiles = s->numYtiles = 0;
-        return AVERROR(ENOMEM);
-    }
-
-    for (i = 0; i < s->numXtiles * s->numYtiles; i++) {
-        Jpeg2000Tile *tile = s->tile + i;
-
-        tile->comp = av_mallocz(s->ncomponents * sizeof(*tile->comp));
-        if (!tile->comp)
+        s->tile = av_mallocz_array(s->numXtiles * s->numYtiles, sizeof(*s->tile));
+        if (!s->tile) {
+            s->numXtiles = s->numYtiles = 0;
             return AVERROR(ENOMEM);
+        }
+
+        for (i = 0; i < s->numXtiles * s->numYtiles; i++) {
+            Jpeg2000Tile *tile = s->tile + i;
+
+            tile->comp = av_mallocz(s->ncomponents * sizeof(*tile->comp));
+            if (!tile->comp)
+                return AVERROR(ENOMEM);
+        }
     }
 
     /* compute image size with reduction factor */
@@ -1250,10 +1251,7 @@ static void jpeg2000_dec_cleanup(Jpeg2000DecoderContext *s)
 
             ff_jpeg2000_cleanup(comp, codsty);
         }
-        av_freep(&s->tile[tileno].comp);
     }
-    av_freep(&s->tile);
-    s->numXtiles = s->numYtiles = 0;
 }
 
 static int jpeg2000_read_main_headers(Jpeg2000DecoderContext *s)
@@ -1459,6 +1457,27 @@ static void jpeg2000_init_static_data(AVCodec *codec)
 {
     ff_jpeg2000_init_tier1_luts();
 }
+static av_cold int jpeg2000_decode_init(AVCodecContext *avctx) {
+    Jpeg2000DecoderContext *s = avctx->priv_data;
+    av_log(s->avctx, AV_LOG_ERROR, "jpeg2000_decode_init \n");
+    s->tile = NULL;
+
+    return 0;
+}
+static av_cold int jpeg2000_decode_end(AVCodecContext *avctx) {
+    Jpeg2000DecoderContext *s = avctx->priv_data;
+    int tileno;
+    av_log(s->avctx, AV_LOG_ERROR, "jpeg2000_decode_end \n");
+    for (tileno = 0; tileno < s->numXtiles * s->numYtiles; tileno++) {
+        av_freep(&s->tile[tileno].comp);
+    }
+    av_freep(&s->tile);
+    s->numXtiles = s->numYtiles = 0;
+
+    return 0;
+}
+
+
 
 #define OFFSET(x) offsetof(Jpeg2000DecoderContext, x)
 #define VD AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_DECODING_PARAM
@@ -1493,6 +1512,8 @@ AVCodec ff_jpeg2000_decoder = {
     .capabilities     = CODEC_CAP_FRAME_THREADS,
     .priv_data_size   = sizeof(Jpeg2000DecoderContext),
     .init_static_data = jpeg2000_init_static_data,
+    .init                  = jpeg2000_decode_init,
+    .close                 = jpeg2000_decode_end,
     .decode           = jpeg2000_decode_frame,
     .priv_class       = &class,
     .profiles         = NULL_IF_CONFIG_SMALL(profiles)
