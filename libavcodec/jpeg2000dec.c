@@ -678,13 +678,7 @@ static int jpeg2000_decode_packet(Jpeg2000DecoderContext *s,
             cblk->lblock += llen;
             if ((ret = get_bits(s, av_log2(newpasses) + cblk->lblock)) < 0)
                 return ret;
-            if (ret > sizeof(cblk->data)) {
-                avpriv_request_sample(s->avctx,
-                                      "Block with lengthinc greater than %zu",
-                                      sizeof(cblk->data));
-                return AVERROR_PATCHWELCOME;
-            }
-            cblk->lengthinc = ret;
+                        cblk->lengthinc = ret;
             cblk->npasses  += newpasses;
         }
     }
@@ -708,9 +702,13 @@ static int jpeg2000_decode_packet(Jpeg2000DecoderContext *s,
                 return AVERROR_INVALIDDATA;
             /* Code-block data can be empty. In that case initialize data
              * with 0xFFFF. */
+            /* TODO: this solution wrong, need to manage code-block data size change
+             * in case of code-block, in several layers */
             if (cblk->lengthinc > 0) {
+                cblk->data = av_mallocz_array(cblk->lengthinc + 2, sizeof(*cblk->data));
                 bytestream2_get_bufferu(&s->g, cblk->data, cblk->lengthinc);
             } else {
+                cblk->data = av_mallocz_array(2, sizeof(*cblk->data));
                 cblk->data[0] = 0xFF;
                 cblk->data[1] = 0xFF;
             }
