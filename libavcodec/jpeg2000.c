@@ -509,6 +509,13 @@ void ff_jpeg2000_cleanup(Jpeg2000Component *comp, Jpeg2000CodingStyle *codsty)
                     continue;
 
                 prec = band->prec + precno;
+                int nb_code_blocks = prec->nb_codeblocks_height * prec->nb_codeblocks_width;
+                int cblkno;
+                for (cblkno = 0; cblkno < nb_code_blocks; cblkno++) {
+                    Jpeg2000Cblk *cblk = prec->cblk + cblkno;
+                    av_freep(&cblk->data);
+                }
+
                 av_freep(&prec->zerobits);
                 av_freep(&prec->cblkincl);
                 av_freep(&prec->cblk);
