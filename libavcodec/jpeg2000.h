@@ -156,11 +156,6 @@ typedef struct Jpeg2000QuantStyle {
     uint8_t nguardbits;    // number of guard bits
 } Jpeg2000QuantStyle;
 
-typedef struct Jpeg2000Pass {
-    uint16_t rate;
-    int64_t disto;
-} Jpeg2000Pass;
-
 typedef struct Jpeg2000Cblk {
     uint8_t npasses;
     uint8_t ninclpasses; // number coding of passes included in codestream
@@ -170,7 +165,6 @@ typedef struct Jpeg2000Cblk {
     uint8_t lblock;
     uint8_t zero;
     uint8_t *data;
-    Jpeg2000Pass passes[100];
     uint16_t coord[2][2]; // border coordinates {{x0, x1}, {y0, y1}}
 } Jpeg2000Cblk; // code block
 
