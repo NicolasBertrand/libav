@@ -165,7 +165,6 @@ typedef struct Jpeg2000Cblk {
     uint8_t lblock;
     uint8_t zero;
     uint8_t *data;
-    Jpeg2000Pass passes[100];
     uint16_t coord[2][2]; // border coordinates {{x0, x1}, {y0, y1}}
 } Jpeg2000Cblk; // code block
 
