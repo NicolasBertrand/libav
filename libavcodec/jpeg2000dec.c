@@ -25,6 +25,10 @@
  * JPEG 2000 image decoder
  */
 
+#ifdef __SSE__
+#include <xmmintrin.h>
+#endif
+
 #include "libavutil/common.h"
 #include "libavutil/opt.h"
 #include "avcodec.h"
@@ -1060,6 +1064,52 @@ static const int   i_ict_params[4] = {
     116130
 };
 
+static void mct_decode_sse(
+        float* restrict c0,
+        float* restrict c1,
+        float* restrict c2,
+        int n)
+{
+    int i;
+    __m128 vrv, vgu, vgv, vbu;
+    vrv = _mm_set1_ps(1.402f);
+    vgu = _mm_set1_ps(0.34413f);
+    vgv = _mm_set1_ps(0.71414f);
+    vbu = _mm_set1_ps(1.772f);
+    for (i = 0; i < (n >> 3); ++i) {
+        __m128 vy, vu, vv;
+        __m128 vr, vg, vb;
+
+        vy = _mm_load_ps(c0);
+        vu = _mm_load_ps(c1);
+        vv = _mm_load_ps(c2);
+        vr = _mm_add_ps(vy, _mm_mul_ps(vv, vrv));
+        vg = _mm_sub_ps(_mm_sub_ps(vy, _mm_mul_ps(vu, vgu)), _mm_mul_ps(vv, vgv));
+        vb = _mm_add_ps(vy, _mm_mul_ps(vu, vbu));
+        _mm_store_ps(c0, vr);
+        _mm_store_ps(c1, vg);
+        _mm_store_ps(c2, vb);
+        c0 += 4;
+        c1 += 4;
+        c2 += 4;
+
+        vy = _mm_load_ps(c0);
+        vu = _mm_load_ps(c1);
+        vv = _mm_load_ps(c2);
+        vr = _mm_add_ps(vy, _mm_mul_ps(vv, vrv));
+        vg = _mm_sub_ps(_mm_sub_ps(vy, _mm_mul_ps(vu, vgu)), _mm_mul_ps(vv, vgv));
+        vb = _mm_add_ps(vy, _mm_mul_ps(vu, vbu));
+        _mm_store_ps(c0, vr);
+        _mm_store_ps(c1, vg);
+        _mm_store_ps(c2, vb);
+        c0 += 4;
+        c1 += 4;
+        c2 += 4;
+    }
+    n &= 7;
+}
+
+
 static void mct_decode(Jpeg2000DecoderContext *s, Jpeg2000Tile *tile)
 {
     int i, csize = 1;
@@ -1076,6 +1126,10 @@ static void mct_decode(Jpeg2000DecoderContext *s, Jpeg2000Tile *tile)
         csize *= tile->comp[0].coord[i][1] - tile->comp[0].coord[i][0];
     switch (tile->codsty[0].transform) {
     case FF_DWT97:
+#ifdef __SSE__
+        mct_decode_sse(srcf[0], srcf[1], srcf[2], csize);
+#else
+
         for (i = 0; i < csize; i++) {
             i0f = *srcf[0] + (f_ict_params[0] * *srcf[2]);
             i1f = *srcf[0] - (f_ict_params[1] * *srcf[1])
@@ -1085,6 +1139,7 @@ static void mct_decode(Jpeg2000DecoderContext *s, Jpeg2000Tile *tile)
             *srcf[1]++ = i1f;
             *srcf[2]++ = i2f;
         }
+#endif
         break;
     case FF_DWT97_INT:
         for (i = 0; i < csize; i++) {
