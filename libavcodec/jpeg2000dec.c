@@ -86,6 +86,8 @@ typedef struct Jpeg2000DecoderContext {
 
     /*options parameters*/
     int             reduction_factor;
+
+    int             comp_initialized;
 } Jpeg2000DecoderContext;
 
 /* get_bits functions for JPEG2000 packet bitstream
@@ -576,26 +578,38 @@ static int init_tile(Jpeg2000DecoderContext *s, int tileno)
     if (!tile->comp)
         return AVERROR(ENOMEM);
 
-    for (compno = 0; compno < s->ncomponents; compno++) {
-        Jpeg2000Component *comp = tile->comp + compno;
-        Jpeg2000CodingStyle *codsty = tile->codsty + compno;
-        Jpeg2000QuantStyle  *qntsty = tile->qntsty + compno;
-        int ret; // global bandno
+    if (!s->comp_initialized) {
+        for (compno = 0; compno < s->ncomponents; compno++) {
+            Jpeg2000Component *comp = tile->comp + compno;
+            Jpeg2000CodingStyle *codsty = tile->codsty + compno;
+            Jpeg2000QuantStyle  *qntsty = tile->qntsty + compno;
+            int ret; // global bandno
 
-        comp->coord_o[0][0] = FFMAX(tilex       * s->tile_width  + s->tile_offset_x, s->image_offset_x);
-        comp->coord_o[0][1] = FFMIN((tilex + 1) * s->tile_width  + s->tile_offset_x, s->width);
-        comp->coord_o[1][0] = FFMAX(tiley       * s->tile_height + s->tile_offset_y, s->image_offset_y);
-        comp->coord_o[1][1] = FFMIN((tiley + 1) * s->tile_height + s->tile_offset_y, s->height);
+            //av_log(s->avctx, AV_LOG_ERROR, " full init comp\n");
+            comp->coord_o[0][0] = FFMAX(tilex       * s->tile_width  + s->tile_offset_x, s->image_offset_x);
+            comp->coord_o[0][1] = FFMIN((tilex + 1) * s->tile_width  + s->tile_offset_x, s->width);
+            comp->coord_o[1][0] = FFMAX(tiley       * s->tile_height + s->tile_offset_y, s->image_offset_y);
+            comp->coord_o[1][1] = FFMIN((tiley + 1) * s->tile_height + s->tile_offset_y, s->height);
 
-        comp->coord[0][0] = ff_jpeg2000_ceildivpow2(comp->coord_o[0][0], s->reduction_factor);
-        comp->coord[0][1] = ff_jpeg2000_ceildivpow2(comp->coord_o[0][1], s->reduction_factor);
-        comp->coord[1][0] = ff_jpeg2000_ceildivpow2(comp->coord_o[1][0], s->reduction_factor);
-        comp->coord[1][1] = ff_jpeg2000_ceildivpow2(comp->coord_o[1][1], s->reduction_factor);
+            comp->coord[0][0] = ff_jpeg2000_ceildivpow2(comp->coord_o[0][0], s->reduction_factor);
+            comp->coord[0][1] = ff_jpeg2000_ceildivpow2(comp->coord_o[0][1], s->reduction_factor);
+            comp->coord[1][0] = ff_jpeg2000_ceildivpow2(comp->coord_o[1][0], s->reduction_factor);
+            comp->coord[1][1] = ff_jpeg2000_ceildivpow2(comp->coord_o[1][1], s->reduction_factor);
 
-        if (ret = ff_jpeg2000_init_component(comp, codsty, qntsty,
+
+            if (ret = ff_jpeg2000_init_component(comp, codsty, qntsty,
                                              s->cbps[compno], s->cdx[compno],
                                              s->cdy[compno], s->avctx))
-            return ret;
+                return ret;
+            }
+        s->comp_initialized = 1;
+    } else {
+        //av_log(s->avctx, AV_LOG_ERROR, " reinit comp\n");
+        for (compno = 0; compno < s->ncomponents; compno++) {
+            Jpeg2000Component *comp = tile->comp + compno;
+            Jpeg2000CodingStyle *codsty = tile->codsty + compno;
+            ff_jpeg2000_reinit_component(comp, codsty);
+        }
     }
     return 0;
 }
@@ -1251,7 +1265,10 @@ static void jpeg2000_dec_cleanup(Jpeg2000DecoderContext *s)
 
             ff_jpeg2000_cleanup(comp, codsty);
         }
-    }
+        av_freep(&s->tile[tileno].comp);
+     }
+    av_freep(&s->tile);
+    s->numXtiles = s->numYtiles = 0;
 }
 
 static int jpeg2000_read_main_headers(Jpeg2000DecoderContext *s)
@@ -1442,8 +1459,6 @@ static int jpeg2000_decode_frame(AVCodecContext *avctx, void *data,
         if (ret = jpeg2000_decode_tile(s, s->tile + tileno, picture))
             goto end;
 
-    jpeg2000_dec_cleanup(s);
-
     *got_frame = 1;
 
     return bytestream2_tell(&s->g);
@@ -1461,19 +1476,13 @@ static av_cold int jpeg2000_decode_init(AVCodecContext *avctx) {
     Jpeg2000DecoderContext *s = avctx->priv_data;
     av_log(s->avctx, AV_LOG_ERROR, "jpeg2000_decode_init \n");
     s->tile = NULL;
-
+    s->comp_initialized = 0;
     return 0;
 }
 static av_cold int jpeg2000_decode_end(AVCodecContext *avctx) {
     Jpeg2000DecoderContext *s = avctx->priv_data;
-    int tileno;
     av_log(s->avctx, AV_LOG_ERROR, "jpeg2000_decode_end \n");
-    for (tileno = 0; tileno < s->numXtiles * s->numYtiles; tileno++) {
-        av_freep(&s->tile[tileno].comp);
-    }
-    av_freep(&s->tile);
-    s->numXtiles = s->numYtiles = 0;
-
+    jpeg2000_dec_cleanup(s);
     return 0;
 }
 

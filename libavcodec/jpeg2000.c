@@ -49,6 +49,16 @@ static int32_t tag_tree_size(uint16_t w, uint16_t h)
     return (int32_t)(res + 1);
 }
 
+static void tag_tree_zero(Jpeg2000TgtNode *t, int w, int h)
+{
+    int i, siz = tag_tree_size(w, h);
+
+    for (i = 0; i < siz; i++) {
+        t[i].val = 0;
+        t[i].vis = 0;
+    }
+}
+
 static Jpeg2000TgtNode *ff_jpeg2000_tag_tree_init(int w, int h)
 {
     int pw = w, ph = h;
@@ -204,6 +214,8 @@ int ff_jpeg2000_init_component(Jpeg2000Component *comp,
     uint8_t log2_band_prec_width, log2_band_prec_height;
     int reslevelno, bandno, gbandno = 0, ret, i, j;
     uint32_t csize;
+
+    //av_log(NULL, AV_LOG_DEBUG , "ENTER ff_jpeg2000_init_component \n");
 
     if (!codsty->nreslevels2decode) {
         av_log(avctx, AV_LOG_ERROR, "nreslevels2decode uninitialized\n");
@@ -482,9 +494,49 @@ int ff_jpeg2000_init_component(Jpeg2000Component *comp,
     return 0;
 }
 
+static void ff_jpeg2000_codeblock_cleanup(Jpeg2000Prec *prec) {
+    int cblkno;
+    int nb_code_blocks = prec->nb_codeblocks_height * prec->nb_codeblocks_width;
+    for (cblkno = 0; cblkno < nb_code_blocks; cblkno++) {
+            Jpeg2000Cblk *cblk = prec->cblk + cblkno;
+            av_freep(&cblk->data);
+    }
+
+}
+
+void ff_jpeg2000_reinit_component(Jpeg2000Component *comp, Jpeg2000CodingStyle *codsty)
+{
+    int reslevelno, bandno, cblkno, precno;
+    for (reslevelno = 0; reslevelno < codsty->nreslevels; reslevelno++) {
+        Jpeg2000ResLevel *rlevel = comp->reslevel + reslevelno;
+        for (bandno = 0; bandno < rlevel->nbands; bandno++) {
+            Jpeg2000Band *band = rlevel->band + bandno;
+            for(precno = 0; precno < rlevel->num_precincts_x * rlevel->num_precincts_y; precno++) {
+                Jpeg2000Prec *prec = band->prec + precno;
+                tag_tree_zero(prec->zerobits, prec->nb_codeblocks_width, prec->nb_codeblocks_height);
+                tag_tree_zero(prec->cblkincl, prec->nb_codeblocks_width, prec->nb_codeblocks_height);
+                ff_jpeg2000_codeblock_cleanup(prec);
+                for (cblkno = 0; cblkno < prec->nb_codeblocks_width * prec->nb_codeblocks_height; cblkno++) {
+                    Jpeg2000Cblk *cblk = prec->cblk + cblkno;
+                    cblk->length = 0;
+                    cblk->lblock = 3;
+                    cblk->length    = 0;
+                    cblk->npasses   = 0;
+
+
+                }
+            }
+        }
+    }
+}
+
+
+
 void ff_jpeg2000_cleanup(Jpeg2000Component *comp, Jpeg2000CodingStyle *codsty)
 {
     int reslevelno, bandno, precno;
+
+    //av_dlog(NULL, "ff_jpeg2000_cleanup \n");
     for (reslevelno = 0;
          comp->reslevel && reslevelno < codsty->nreslevels;
          reslevelno++) {
@@ -494,13 +546,7 @@ void ff_jpeg2000_cleanup(Jpeg2000Component *comp, Jpeg2000CodingStyle *codsty)
             Jpeg2000Band *band = reslevel->band + bandno;
             for (precno = 0; precno < reslevel->num_precincts_x * reslevel->num_precincts_y; precno++) {
                 Jpeg2000Prec *prec = band->prec + precno;
-                int nb_code_blocks = prec->nb_codeblocks_height * prec->nb_codeblocks_width;
-                int cblkno;
-                for (cblkno = 0; cblkno < nb_code_blocks; cblkno++) {
-                    Jpeg2000Cblk *cblk = prec->cblk + cblkno;
-                    av_freep(&cblk->data);
-                }
-
+                ff_jpeg2000_codeblock_cleanup(prec);
                 av_freep(&prec->zerobits);
                 av_freep(&prec->cblkincl);
                 av_freep(&prec->cblk);
