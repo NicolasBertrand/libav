@@ -28,24 +28,8 @@
  */
 
 #include <stdint.h>
+#include "jpeg2000.h"
 
-#define FF_DWT_MAX_DECLVLS 32 ///< max number of decomposition levels
-
-enum DWTType {
-    FF_DWT97,
-    FF_DWT53,
-    FF_DWT97_INT
-};
-
-typedef struct DWTContext {
-    /// line lengths { horizontal, vertical } in consecutive decomposition levels
-    uint16_t linelen[FF_DWT_MAX_DECLVLS][2];
-    uint8_t mod[FF_DWT_MAX_DECLVLS][2];  ///< coordinates (x0, y0) of decomp. levels mod 2
-    uint8_t ndeclevels;                  ///< number of decomposition levels
-    uint8_t type;                        ///< 0 for 9/7; 1 for 5/3
-    int32_t *i_linebuf;                  ///< int buffer used by transform
-    float   *f_linebuf;                  ///< float buffer used by transform
-} DWTContext;
 
 /**
  * Initialize DWT.
@@ -61,4 +45,5 @@ int ff_dwt_decode(DWTContext *s, void *t);
 
 void ff_dwt_destroy(DWTContext *s);
 
+int opj_dwt_decode(DWTContext *s, Jpeg2000Component *tilec);
 #endif /* AVCODEC_JPEG2000DWT_H */

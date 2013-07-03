@@ -29,6 +29,7 @@
 #include "libavutil/mem.h"
 #include "avcodec.h"
 #include "jpeg2000.h"
+#include "jpeg2000dwt.h"
 
 #define SHL(a, n) ((n) >= 0 ? (a) << (n) : (a) >> -(n))
 

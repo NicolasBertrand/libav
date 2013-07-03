@@ -32,6 +32,7 @@
 #include "internal.h"
 #include "thread.h"
 #include "jpeg2000.h"
+#include "jpeg2000dwt.h"
 
 #define JP2_SIG_TYPE    0x6A502020
 #define JP2_SIG_VALUE   0x0D0A870A
@@ -1150,7 +1151,7 @@ static int jpeg2000_decode_tile(Jpeg2000DecoderContext *s, Jpeg2000Tile *tile,
         } /* end reslevel */
 
         /* inverse DWT */
-        ff_dwt_decode(&comp->dwt, codsty->transform == FF_DWT97 ? (void*)comp->f_data : (void*)comp->i_data);
+        opj_dwt_decode(&comp->dwt, comp);
     } /*end comp */
 
     /* inverse MCT transformation */

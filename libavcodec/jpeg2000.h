@@ -33,7 +33,6 @@
 
 #include "avcodec.h"
 #include "mqc.h"
-#include "jpeg2000dwt.h"
 
 enum Jpeg2000Markers {
     JPEG2000_SOC = 0xff4f, // start of codestream
@@ -62,6 +61,12 @@ enum Jpeg2000Quantsty { // quantization style
     JPEG2000_QSTY_NONE, // no quantization
     JPEG2000_QSTY_SI,   // scalar derived
     JPEG2000_QSTY_SE    // scalar expounded
+};
+
+enum DWTType {
+    FF_DWT97,
+    FF_DWT53,
+    FF_DWT97_INT
 };
 
 #define JPEG2000_MAX_CBLKW 64
@@ -193,6 +198,17 @@ typedef struct Jpeg2000ResLevel {
     uint8_t log2_prec_width, log2_prec_height; // exponent of precinct size
     Jpeg2000Band *band;
 } Jpeg2000ResLevel; // resolution level
+
+typedef struct DWTContext {
+    /// line lengths { horizontal, vertical } in consecutive decomposition levels
+    uint16_t linelen[JPEG2000_MAX_DECLEVELS][2];
+    uint8_t mod[JPEG2000_MAX_DECLEVELS][2];  ///< coordinates (x0, y0) of decomp. levels mod 2
+    uint8_t ndeclevels;                  ///< number of decomposition levels
+    uint8_t type;                        ///< 0 for 9/7; 1 for 5/3
+    int32_t *i_linebuf;                  ///< int buffer used by transform
+    float   *f_linebuf;                  ///< float buffer used by transform
+} DWTContext;
+
 
 typedef struct Jpeg2000Component {
     Jpeg2000ResLevel *reslevel;
