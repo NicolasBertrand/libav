@@ -1022,7 +1022,7 @@ static int decode_cblk(Jpeg2000DecoderContext *s, Jpeg2000CodingStyle *codsty,
 /* Float dequantization of a codeblock.*/
 static void dequantization_float(int x, int y, Jpeg2000Cblk *cblk,
                                  Jpeg2000Component *comp,
-                                 Jpeg2000T1Context *t1, Jpeg2000Band *band)
+                                 Jpeg2000T1Context *t1, float step)
 {
     int i, j;
     int w = cblk->coord[0][1] - cblk->coord[0][0];
@@ -1030,14 +1030,14 @@ static void dequantization_float(int x, int y, Jpeg2000Cblk *cblk,
         float *datap = &comp->f_data[(comp->coord[0][1] - comp->coord[0][0]) * (y + j) + x];
         int *src = t1->data[j];
         for (i = 0; i < w; ++i)
-            datap[i] = src[i] * band->f_stepsize;
+            datap[i] = src[i] * step;
     }
 }
 
 /* Integer dequantization of a codeblock.*/
 static void dequantization_int(int x, int y, Jpeg2000Cblk *cblk,
                                Jpeg2000Component *comp,
-                               Jpeg2000T1Context *t1, Jpeg2000Band *band)
+                               Jpeg2000T1Context *t1, int step)
 {
     int i, j;
     int w = cblk->coord[0][1] - cblk->coord[0][0];
@@ -1045,7 +1045,7 @@ static void dequantization_int(int x, int y, Jpeg2000Cblk *cblk,
         int32_t *datap = &comp->i_data[(comp->coord[0][1] - comp->coord[0][0]) * (y + j) + x];
         int *src = t1->data[j];
         for (i = 0; i < w; ++i)
-            datap[i] = (src[i] * band->i_stepsize + (1 << 15)) >> 16;
+            datap[i] = (src[i] * step) >> 16;
     }
 }
 
@@ -1210,9 +1210,9 @@ static int jpeg2000_decode_tile(Jpeg2000DecoderContext *s, Jpeg2000Tile *tile,
                         y = cblk->coord[1][0];
 
                         if (codsty->transform == FF_DWT97)
-                            dequantization_float(x, y, cblk, comp, &t1, band);
+                            dequantization_float(x, y, cblk, comp, &t1, band->f_stepsize);
                         else
-                            dequantization_int(x, y, cblk, comp, &t1, band);
+                            dequantization_int(x, y, cblk, comp, &t1, band->i_stepsize + (1 <<15));
                    } /* end cblk */
                 } /*end prec */
             } /* end band */
