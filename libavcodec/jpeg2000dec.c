@@ -1174,7 +1174,6 @@ static int jpeg2000_decode_tile(Jpeg2000DecoderContext *s, Jpeg2000Tile *tile,
     uint8_t *line;
     Jpeg2000T1Context t1;
     /* Loop on tile components */
-
     for (compno = 0; compno < s->ncomponents; compno++) {
         Jpeg2000Component *comp     = tile->comp + compno;
         Jpeg2000CodingStyle *codsty = tile->codsty + compno;
@@ -1526,6 +1525,7 @@ end:
 static void jpeg2000_init_static_data(AVCodec *codec)
 {
     ff_jpeg2000_init_tier1_luts();
+    init_mqc_tables();
 }
 static av_cold int jpeg2000_decode_init(AVCodecContext *avctx) {
     Jpeg2000DecoderContext *s = avctx->priv_data;
