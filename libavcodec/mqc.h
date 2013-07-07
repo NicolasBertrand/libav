@@ -45,6 +45,9 @@ typedef struct MqcState {
     uint8_t cx_states[19];
 } MqcState;
 
+
+void init_mqc_tables(void);
+
 /* decoder */
 
 /**
