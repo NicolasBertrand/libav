@@ -90,6 +90,7 @@ typedef struct Jpeg2000DecoderContext {
 
     /*options parameters*/
     int             reduction_factor;
+    int             skip_pass;
 
     int             comp_initialized;
 } Jpeg2000DecoderContext;
@@ -1003,12 +1004,14 @@ static int decode_cblk(Jpeg2000DecoderContext *s, Jpeg2000CodingStyle *codsty,
                 ff_mqc_initdec(&t1->mqc, cblk->data);
             break;
         }
-
         pass_t++;
         if (pass_t == 3) {
             bpno--;
             pass_t = 0;
         }
+
+        if ( passno < s->skip_pass )
+            break;
     }
     return 0;
 }
@@ -1547,6 +1550,9 @@ static av_cold int jpeg2000_decode_end(AVCodecContext *avctx) {
 static const AVOption options[] = {
     { "lowres",  "Lower the decoding resolution by a power of two",
         OFFSET(reduction_factor), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, JPEG2000_MAX_RESLEVELS - 1, VD },
+    {"skip_pass", "Skip some passes",
+        OFFSET(skip_pass), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, 100, VD },
+
     { NULL },
 };
 
