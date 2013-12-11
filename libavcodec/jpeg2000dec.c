@@ -1529,14 +1529,12 @@ static void jpeg2000_init_static_data(AVCodec *codec)
 }
 static av_cold int jpeg2000_decode_init(AVCodecContext *avctx) {
     Jpeg2000DecoderContext *s = avctx->priv_data;
-    av_log(s->avctx, AV_LOG_ERROR, "jpeg2000_decode_init \n");
     s->tile = NULL;
     s->comp_initialized = 0;
     return 0;
 }
 static av_cold int jpeg2000_decode_end(AVCodecContext *avctx) {
     Jpeg2000DecoderContext *s = avctx->priv_data;
-    av_log(s->avctx, AV_LOG_ERROR, "jpeg2000_decode_end \n");
     jpeg2000_dec_cleanup(s);
     return 0;
 }
