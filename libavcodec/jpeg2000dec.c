@@ -1010,7 +1010,7 @@ static int decode_cblk(Jpeg2000DecoderContext *s, Jpeg2000CodingStyle *codsty,
             pass_t = 0;
         }
 
-        if ( passno < s->skip_pass )
+        if ( passno < 5 )
             break;
     }
     return 0;
