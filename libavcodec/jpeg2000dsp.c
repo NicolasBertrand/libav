@@ -24,6 +24,10 @@
 #include "libavutil/attributes.h"
 #include "jpeg2000dsp.h"
 
+#ifdef __SSE__
+#include <xmmintrin.h>
+#endif
+
 /* Inverse ICT parameters in float and integer.
  * int value = (float value) * (1<<16) */
 static const float f_ict_params[4] = {
@@ -40,9 +44,56 @@ static const int i_ict_params[4] = {
     116130
 };
 
+static void mct_decode_sse(
+                float* restrict c0,
+                float* restrict c1,
+                float* restrict c2,
+                int n)
+{
+    int i;
+    __m128 vrv, vgu, vgv, vbu;
+    vrv = _mm_set1_ps(1.402f);
+    vgu = _mm_set1_ps(0.34413f);
+    vgv = _mm_set1_ps(0.71414f);
+    vbu = _mm_set1_ps(1.772f);
+    for (i = 0; i < (n >> 3); ++i) {
+        __m128 vy, vu, vv;
+        __m128 vr, vg, vb;
+
+        vy = _mm_load_ps(c0);
+        vu = _mm_load_ps(c1);
+        vv = _mm_load_ps(c2);
+        vr = _mm_add_ps(vy, _mm_mul_ps(vv, vrv));
+        vg = _mm_sub_ps(_mm_sub_ps(vy, _mm_mul_ps(vu, vgu)), _mm_mul_ps(vv, vgv));
+        vb = _mm_add_ps(vy, _mm_mul_ps(vu, vbu));
+        _mm_store_ps(c0, vr);
+        _mm_store_ps(c1, vg);
+        _mm_store_ps(c2, vb);
+        c0 += 4;
+        c1 += 4;
+        c2 += 4;
+        vy = _mm_load_ps(c0);
+        vu = _mm_load_ps(c1);
+        vv = _mm_load_ps(c2);
+        vr = _mm_add_ps(vy, _mm_mul_ps(vv, vrv));
+        vg = _mm_sub_ps(_mm_sub_ps(vy, _mm_mul_ps(vu, vgu)), _mm_mul_ps(vv, vgv));
+        vb = _mm_add_ps(vy, _mm_mul_ps(vu, vbu));
+        _mm_store_ps(c0, vr);
+        _mm_store_ps(c1, vg);
+        _mm_store_ps(c2, vb);
+        c0 += 4;
+        c1 += 4;
+        c2 += 4;
+    }
+    n &= 7;
+}
+
 static void ict_float(void *_src0, void *_src1, void *_src2, int csize)
 {
-    float *src0 = _src0, *src1 = _src1, *src2 = _src2;
+   float *src0 = _src0, *src1 = _src1, *src2 = _src2;
+#ifdef __SSE__
+    mct_decode_sse(src0, src1, src2, csize);
+#else
     float i0f, i1f, i2f;
     int i;
 
@@ -55,6 +106,7 @@ static void ict_float(void *_src0, void *_src1, void *_src2, int csize)
         *src1++ = i1f;
         *src2++ = i2f;
     }
+#endif
 }
 
 static void ict_int(void *_src0, void *_src1, void *_src2, int csize)
